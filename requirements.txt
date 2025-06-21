@@ -1,0 +1,13 @@
+discord
+pymongo
+psutil
+discord.py
+pillow
+aiohttp
+aiofiles
+tenacity
+captcha
+yt-dlp
+PyNaCl
+ffmpeg
+python-dotenv
