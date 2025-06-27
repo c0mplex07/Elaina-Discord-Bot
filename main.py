@@ -151,11 +151,11 @@ async def on_interaction(interaction):
 # ====================== HELPER FUNCTIONS =====================
 async def handle_bot_mention(message):
     """Trả lời khi bot bị mention."""
-    image_url = "https://c.tenor.com/Hpd6ebmlWHMAAAAC/tenor.gif"  # Thay đổi link ảnh tại đây
+    image_url = "https://c.tenor.com/Hpd6ebmlWHMAAAAC/tenor.gif"
     embed = discord.Embed(
         description=(
-            f"Xin chào {message.author.mention}! Tớ là Elaina sinh ngày 17/10 tới từ Robetta\n"
-            "Pháp hiệu của tớ là Phù thuỷ Tro tàn, hiện tại tớ đang là một lữ khách lang thang"
+            f"Xin chào {message.author.mention}! Tớ là Elaina sinh ngày 17/10 tới từ Robetta.\n"
+            "Pháp hiệu của tớ là Phù thuỷ Tro tàn, hiện tại tớ đang là một lữ khách lang thang."
         ),
         color=0xffb0f7
     )
@@ -202,7 +202,11 @@ async def load_initial_cogs():
     initial_cogs = ['cmd.group.embed_commands', 'cmd.group.greet_commands',
                     'cmd.group.moderation_commands',
                     
-                    'cmd.script.greet_script', 'cmd.script.leave_script']
+                    'cmd.script.greet_script', 'cmd.script.leave_script',
+                    
+                    'cmd.single.weather', 'cmd.single.chat', 'cmd.single.userinfo',
+                    'cmd.single.replay'
+                    ]
     for cog in initial_cogs:
         try:
             await bot.load_extension(cog)

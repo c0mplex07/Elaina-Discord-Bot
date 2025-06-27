@@ -85,7 +85,7 @@ class Replay(commands.Cog):
             with youtube_dl.YoutubeDL(ydl_opts) as ydl:
                 loop = asyncio.get_event_loop()
                 data = await loop.run_in_executor(None, lambda: ydl.extract_info(url, download=True))
-                if 'entries' in data:
+                if data and isinstance(data, dict) and 'entries' in data and data['entries']:
                     data = data['entries'][0]
         except Exception as e:
             if os.path.exists(temp_path):
@@ -113,19 +113,13 @@ class Replay(commands.Cog):
 
     @app_commands.command(
         name="replay",
-        description="Replay video từ TikTok và YouTube Shorts."
+        description="Replay video from TikTok & YouTube Shorts."
     )
     async def replay(self, interaction: discord.Interaction, video_url: str):
-        user_data = await self.bot.loop.run_in_executor(
-            None, self.bot.mongo_handler.get_user_data, str(interaction.user.id)
-        )
-        if user_data.get('banned', False):
-            return
-
         SUPPORTED_PLATFORMS = ["tiktok.com", "youtube.com/shorts"]
         if not any(p in video_url.lower() for p in SUPPORTED_PLATFORMS):
             return await interaction.response.send_message(
-                "<:x_:1335734856734347355> **|** Chỉ hỗ trợ TikTok và YouTube Shorts!",
+                "⚠️ Only TikTok and YouTube Shorts are supported!",
                 ephemeral=True
             )
     
@@ -135,13 +129,13 @@ class Replay(commands.Cog):
             video_bytes, info = await self.download_video(video_url)
         except Exception as e:
             return await interaction.followup.send(
-                f"<:warning:1335735040692322315> **|** Lỗi tải video: {str(e)}",
+                f"⚠️ Video download error: ```{str(e)}```",
                 ephemeral=True
             )
     
         if len(video_bytes) > 25 * 1024 * 1024:
             return await interaction.followup.send(
-                "<:warning:1335735040692322315> **|** Video vượt quá 25MB!",
+                "⚠️ Video exceeds 25MB!",
                 ephemeral=True
             )
     
@@ -166,8 +160,8 @@ class Replay(commands.Cog):
         video_title = info.get('title', 'Video replay')
         video_link = info.get('webpage_url', video_url)
         message_content = (
-            f"{video_title} (Đăng vào: {time_str})\n"
-            f"-# ↪ Link gốc: {video_link}"
+            f"{video_title} (Uploaded: {time_str})\n"
+            f"-# [↪ Original link]({video_link})"
         )
     
         filename = f"replay_{info['id']}.mp4"
@@ -179,6 +173,73 @@ class Replay(commands.Cog):
             wait=True
         )
         await self.suppress_embeds_via_patch(interaction, sent_message.id)
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+        SUPPORTED_PLATFORMS = ["tiktok.com", "youtube.com/shorts"]
+        found_url = None
+        for word in message.content.split():
+            for platform in SUPPORTED_PLATFORMS:
+                if platform in word.lower():
+                    found_url = word
+                    break
+            if found_url:
+                break
+        if not found_url:
+            return
+        try:
+            await message.edit(suppress=True)
+        except Exception:
+            pass
+        try:
+            await message.channel.typing()
+            video_bytes, info = await self.download_video(found_url)
+        except Exception as e:
+            await message.channel.send(f"⚠️ Video download error: ```{str(e)}```")
+            return
+        if len(video_bytes) > 25 * 1024 * 1024:
+            await message.channel.send("⚠️ Video exceeds 25MB!")
+            return
+        timestamp_val = None
+        upload_date = info.get('upload_date') or info.get('release_date')
+        if upload_date:
+            try:
+                struct_time = time.strptime(upload_date, "%Y%m%d")
+                timestamp_val = int(time.mktime(struct_time)) - (7 * 3600)
+            except Exception:
+                timestamp_val = None
+        if not timestamp_val and info.get('timestamp'):
+            try:
+                timestamp_val = int(info['timestamp'])
+            except Exception:
+                timestamp_val = None
+        if timestamp_val:
+            time_str = f"<t:{timestamp_val}:R>"
+        else:
+            time_str = "N/A"
+        video_title = info.get('title', 'Video replay')
+        video_link = info.get('webpage_url', found_url)
+        message_content = (
+            f"{video_title} (Uploaded: {time_str})\n"
+            f"-# [↪ Original link]({video_link})"
+        )
+        filename = f"replay_{info['id']}.mp4"
+        file = discord.File(io.BytesIO(video_bytes), filename=filename)
+        sent_message = await message.channel.send(content=message_content, file=file)
+        try:
+            await sent_message.edit(suppress=True)
+        except Exception:
+            try:
+                route = Route(
+                    "PATCH",
+                    f"/channels/{sent_message.channel.id}/messages/{sent_message.id}"
+                )
+                payload = {"flags": 4}
+                await self.bot.http.request(route, json=payload)
+            except Exception:
+                pass
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Replay(bot))

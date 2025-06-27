@@ -5,7 +5,7 @@ import aiohttp
 import os
 import math
 import unicodedata
-from typing import Tuple
+from typing import Tuple, Optional
 from datetime import datetime, timedelta, timezone
 
 os.makedirs("assets", exist_ok=True)
@@ -26,19 +26,19 @@ CITIES = [
 ]
 
 COLOR_MAP = {
-    "nắng": 0xFFD700,
-    "mưa": 0x1E90FF,
-    "nhiều mây": 0xA9A9A9,
-    "bão": 0x800080,
-    "âm u": 0x2F4F4F,
+    "sunny": 0xFFD700,
+    "rain": 0x1E90FF,
+    "cloudy": 0xA9A9A9,
+    "storm": 0x800080,
+    "overcast": 0x2F4F4F,
 }
 
 THUMBNAIL_MAP = {
-    "nắng": "assets/sunny.png",
-    "mưa": "assets/rain.png",
-    "nhiều mây": "assets/cloudy.png",
-    "bão": "assets/storm.png",
-    "âm u": "assets/overcast.png"
+    "sunny": "assets/sunny.jpg",
+    "rain": "assets/rain.jpg",
+    "cloudy": "assets/cloudy.jpg",
+    "storm": "assets/storm.jpg",
+    "overcast": "assets/overcast.jpg"
 }
 
 def remove_accents(input_str: str) -> str:
@@ -48,54 +48,54 @@ def remove_accents(input_str: str) -> str:
 
 def parse_condition(description: str) -> str:
     desc = description.lower()
-    if "bão" in desc or "giông" in desc:
-        return "bão"
-    elif "mưa" in desc:
-        return "mưa"
-    elif "nắng" in desc or "trời quang" in desc:
-        return "nắng"
-    elif "u ám" in desc or "đen" in desc:
-        return "âm u"
-    elif "mây" in desc:
-        return "nhiều mây"
-    return "âm u"
+    if "storm" in desc or "thunder" in desc:
+        return "storm"
+    elif "rain" in desc:
+        return "rain"
+    elif "sunny" in desc or "clear" in desc:
+        return "sunny"
+    elif "overcast" in desc or "dark" in desc:
+        return "overcast"
+    elif "cloud" in desc:
+        return "cloudy"
+    return "overcast"
 
 def deg_to_compass(deg: float) -> str:
-    directions = ['Bắc', 'Đông Bắc', 'Đông', 'Đông Nam', 'Nam', 'Tây Nam', 'Tây', 'Tây Bắc']
+    directions = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest']
     idx = int((deg + 22.5) / 45) % 8
     return directions[idx]
 
 def convert_owm_aqi(api_aqi: int) -> Tuple[int, str]:
     mapping = {
-        1: (25, "Tốt"),
-        2: (75, "Trung bình"),
-        3: (125, "Ô nhiễm vừa phải"),
-        4: (175, "Ô nhiễm nặng"),
-        5: (250, "Rất ô nhiễm")
+        1: (25, "Good"),
+        2: (75, "Moderate"),
+        3: (125, "Unhealthy for sensitive groups"),
+        4: (175, "Unhealthy"),
+        5: (250, "Very Unhealthy")
     }
-    return mapping.get(api_aqi, (0, "Không xác định"))
+    return mapping.get(api_aqi, (0, "Unknown"))
 
 def date_to_weekday(date_str: str) -> str:
     dt = datetime.strptime(date_str, "%Y-%m-%d")
     weekday = dt.weekday()
     mapping = {
-        0: "Thứ Hai",
-        1: "Thứ Ba",
-        2: "Thứ Tư",
-        3: "Thứ Năm",
-        4: "Thứ Sáu",
-        5: "Thứ Bảy",
-        6: "Chủ Nhật"
+        0: "Monday",
+        1: "Tuesday",
+        2: "Wednesday",
+        3: "Thursday",
+        4: "Friday",
+        5: "Saturday",
+        6: "Sunday"
     }
     return mapping.get(weekday, date_str)
 
-async def fetch_weather(city: str) -> dict:
+async def fetch_weather(city: str) -> Optional[dict]:
     weather_url = "https://api.openweathermap.org/data/2.5/weather"
     params_weather = {
         "q": f"{city},VN",
         "appid": API_KEY,
         "units": "metric",
-        "lang": "vi"
+        "lang": "en"
     }
     try:
         async with aiohttp.ClientSession() as session:
@@ -115,7 +115,7 @@ async def fetch_weather(city: str) -> dict:
     lon = coord.get("lon")
     uv_index = None
     aqi_value = None
-    aqi_desc = "Không xác định"
+    aqi_desc = "Unknown"
     if lat is not None and lon is not None:
         uv_url = "https://api.openweathermap.org/data/2.5/uvi"
         params_uv = {
@@ -168,7 +168,7 @@ async def fetch_weather(city: str) -> dict:
         "lon": lon
     }
 
-async def fetch_day_extremes(lat: float, lon: float) -> Tuple[float, float]:
+async def fetch_day_extremes(lat: float, lon: float) -> Tuple[Optional[float], Optional[float]]:
     tz = timezone(timedelta(hours=7))
     now = datetime.now(tz)
     today_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -254,15 +254,15 @@ class WeatherCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @app_commands.command(name="weather", description="Dự báo thời tiết")
-    @app_commands.describe(city="Tên thành phố")
+    @app_commands.command(name="weather", description="Weather forecast")
+    @app_commands.describe(city="City name")
     async def weather(self, interaction: discord.Interaction, city: str):
         await interaction.response.defer()
 
         city_normalized = remove_accents(city)
         weather_data = await fetch_weather(city_normalized)
         if not weather_data or weather_data["temperature"] is None:
-            await interaction.followup.send("Không tìm thấy địa điểm này!")
+            await interaction.followup.send("Location not found!")
             return
 
         lat = weather_data.get("lat")
@@ -291,37 +291,37 @@ class WeatherCog(commands.Cog):
 
         embed = discord.Embed(
             color=color,
-            title=f"Nhiệt độ hiện tại là {temp}°C tại {city}, {country}"
+            title=f"Current temperature is {temp}°C in {city}, {country}"
         )
-        embed.set_author(name=f"Xin chào, {interaction.user.name}", icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="Nhiệt độ cao nhất", value=f"{day_max}°C", inline=True)
-        embed.add_field(name="Nhiệt độ thấp nhất", value=f"{day_min}°C", inline=True)
-        embed.add_field(name="Độ ẩm", value=f"{humidity}%", inline=True)
-        embed.add_field(name="Tốc độ gió", value=f"{wind_speed} m/s, {wind_direction}", inline=True)
-        embed.add_field(name="Khí áp", value=f"{pressure} hPa", inline=True)
-        embed.add_field(name="Tình trạng thời tiết", value=cloudness.capitalize(), inline=True)
-        embed.add_field(name="Chỉ số UV", value=f"{uv_index if uv_index is not None else 'N/A'}", inline=True)
-        embed.add_field(name="Chỉ số không khí", value=f"{aqi if aqi is not None else 'N/A'}", inline=True)
-        embed.add_field(name="Chất lượng không khí", value=aqi_desc, inline=True)
-        embed.set_footer(text="Thông tin có thể không hoàn toàn chính xác!", 
-                         icon_url=self.bot.user.display_avatar.url)
+        embed.set_author(name=f"Hello, {interaction.user.name}", icon_url=interaction.user.display_avatar.url)
+        embed.add_field(name="Highest temperature", value=f"{day_max}°C", inline=True)
+        embed.add_field(name="Lowest temperature", value=f"{day_min}°C", inline=True)
+        embed.add_field(name="Humidity", value=f"{humidity}%", inline=True)
+        embed.add_field(name="Wind speed", value=f"{wind_speed} m/s, {wind_direction}", inline=True)
+        embed.add_field(name="Pressure", value=f"{pressure} hPa", inline=True)
+        embed.add_field(name="Weather condition", value=cloudness.capitalize(), inline=True)
+        embed.add_field(name="UV index", value=f"{uv_index if uv_index is not None else 'N/A'}", inline=True)
+        embed.add_field(name="Air quality index", value=f"{aqi if aqi is not None else 'N/A'}", inline=True)
+        embed.add_field(name="Air quality", value=aqi_desc, inline=True)
+        embed.set_footer(text="Information may not be completely accurate!", 
+                         icon_url=self.bot.user.display_avatar.url if self.bot.user else None)
 
         forecast_data = await fetch_forecast(city_normalized)
         if forecast_data:
             forecast_str = ""
             for fc in forecast_data:
-                forecast_str += f"{fc['weekday']}: {fc['avg_temp']}°C, khả năng mưa: {fc['chance_rain']}\n"
-            embed.add_field(name="Dự báo 3 ngày tới", value=forecast_str, inline=False)
+                forecast_str += f"{fc['weekday']}: {fc['avg_temp']}°C, chance of rain: {fc['chance_rain']}\n"
+            embed.add_field(name="3-day forecast", value=forecast_str, inline=False)
         else:
-            embed.add_field(name="Dự báo 3 ngày tới", value="Không có dữ liệu", inline=False)
+            embed.add_field(name="3-day forecast", value="No data available", inline=False)
 
         thumbnail_path = THUMBNAIL_MAP.get(condition)
         if thumbnail_path and os.path.exists(thumbnail_path):
-            file = discord.File(thumbnail_path, filename="thumbnail.png")
-            embed.set_thumbnail(url="attachment://thumbnail.png")
+            file = discord.File(thumbnail_path, filename="weather_image.png")
+            embed.set_image(url="attachment://weather_image.png")
         else:
             file = None
-            embed.set_thumbnail(url=f"http://openweathermap.org/img/w/{icon}.png")
+            embed.set_image(url=f"http://openweathermap.org/img/w/{icon}.png")
 
         if file:
             await interaction.followup.send(embed=embed, file=file)
@@ -337,7 +337,7 @@ class WeatherCog(commands.Cog):
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error: Exception):
         try:
-            await interaction.followup.send("Đã xảy ra lỗi khi xử lý yêu cầu của bạn.", ephemeral=True)
+            await interaction.followup.send("An error occurred while processing your request.", ephemeral=True)
         except Exception:
             pass
 
