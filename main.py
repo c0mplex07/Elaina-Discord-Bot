@@ -206,7 +206,7 @@ async def load_initial_cogs():
                     
                     'cmd.single.weather', 'cmd.single.chat', 'cmd.single.userinfo',
                     'cmd.single.replay', 'cmd.single.serverinfo', 'cmd.single.ping',
-                    'cmd.single.about'
+                    'cmd.single.about', 'cmd.single.afk'
                     ]
     for cog in initial_cogs:
         try:
