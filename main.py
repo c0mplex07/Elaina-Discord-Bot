@@ -205,7 +205,8 @@ async def load_initial_cogs():
                     'cmd.script.greet_script', 'cmd.script.leave_script',
                     
                     'cmd.single.weather', 'cmd.single.chat', 'cmd.single.userinfo',
-                    'cmd.single.replay'
+                    'cmd.single.replay', 'cmd.single.serverinfo', 'cmd.single.ping',
+                    'cmd.single.about'
                     ]
     for cog in initial_cogs:
         try:

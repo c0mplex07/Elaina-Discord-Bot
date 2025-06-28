@@ -1,25 +1,31 @@
 import discord
 from discord.ext import commands
-import psutil # type: ignore
+from discord import app_commands
+import psutil
 
 class About(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name='about')
-    async def show_info(self, ctx, footer_image_url: str = "https://i.imgur.com/nnzDSnZ.png"):
-        embed = discord.Embed(title="About Me", description="Enou là bot thuộc thể loại economy, minigame được phát triển độc lập bởi <@880694639227699290>. Bot mang sứ mệnh sẽ tạo ra một sân chơi giải trí cho mọi người trên Discord.", color=0x00ff00)
-        embed.add_field(name="Total server", value=f"{len(self.bot.guilds)}", inline=True)
-        embed.add_field(name="Total members", value=f"{sum(len(guild.members) for guild in self.bot.guilds)}", inline=True)
-        embed.add_field(name="Total channels", value=f"{sum(len(guild.channels) for guild in self.bot.guilds)}", inline=True)
-        embed.add_field(name="Text & voice channels", value=f"Text: {sum(len(guild.text_channels) for guild in self.bot.guilds)}, Voice: {sum(len(guild.voice_channels) for guild in self.bot.guilds)}", inline=True)
+    @app_commands.command(name="about", description="Show information about the bot.")
+    async def about(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="About Me",
+            description="I'm Elaina a.k.a. The Ashen Witch, born on October 17th, from Robetta.",
+            color=0xffb0f7
+        )
+        embed.add_field(name="🏠 Total servers", value=f"{len(self.bot.guilds)}", inline=True)
+        embed.add_field(name="👥 Total members", value=f"{sum(len(guild.members) for guild in self.bot.guilds)}", inline=True)
+        embed.add_field(name="💬 Total channels", value=f"{sum(len(guild.channels) for guild in self.bot.guilds)}", inline=True)
+        embed.add_field(name="💬 Text & Voice channels", value=f"Text: {sum(len(guild.text_channels) for guild in self.bot.guilds)}, Voice: {sum(len(guild.voice_channels) for guild in self.bot.guilds)}", inline=True)
         cpu_usage = psutil.cpu_percent(interval=1)
         ram_usage = psutil.virtual_memory().percent
-        embed.add_field(name="CPU usage", value=f"{cpu_usage}%", inline=True)
-        embed.add_field(name="RAM usage", value=f"{ram_usage}%", inline=True)
+        embed.add_field(name="💻 CPU usage", value=f"{cpu_usage}%", inline=True)
+        embed.add_field(name="💾 RAM usage", value=f"{ram_usage}%", inline=True)
 
-        embed.set_footer(text="Made in Vietnam by Xuan Quang", icon_url=footer_image_url)
-        await ctx.send(embed=embed)
+        embed.set_footer(text="Made with discord.py by c0mplex", icon_url="https://images.opencollective.com/discordpy/25fb26d/logo/256.png")
+        embed.set_image(url="https://c.tenor.com/Hpd6ebmlWHMAAAAC/tenor.gif")
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(About(bot))
