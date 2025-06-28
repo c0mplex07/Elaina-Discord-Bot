@@ -19,7 +19,7 @@ class Moderation(commands.Cog):
 
     async def check_all_permissions(self, interaction: discord.Interaction, target: discord.User, required_perm: str) -> bool:
         if interaction.guild is None:
-            await interaction.response.send_message("⚠️ This command can only be **used within a server**.")
+            await interaction.followup.send("⚠️ This command can only be **used within a server**.")
             return False
 
         guild = interaction.guild
@@ -28,38 +28,38 @@ class Moderation(commands.Cog):
 
         if required_perm == "moderate":
             if not invoker.guild_permissions.moderate_members:
-                await interaction.response.send_message("❌ You do not have **Timeout Members** permission to use this command.")
+                await interaction.followup.send("❌ You do not have **Timeout Members** permission to use this command.")
                 return False
         elif required_perm == "kick":
             if not invoker.guild_permissions.kick_members:
-                await interaction.response.send_message("❌ You do not have **Kick Members** permission to use this command.")
+                await interaction.followup.send("❌ You do not have **Kick Members** permission to use this command.")
                 return False
         elif required_perm == "ban":
             if not invoker.guild_permissions.ban_members:
-                await interaction.response.send_message("❌ You do not have **Ban Members** permission to use this command.")
+                await interaction.followup.send("❌ You do not have **Ban Members** permission to use this command.")
                 return False
 
         if required_perm == "moderate":
             if not bot_member.guild_permissions.moderate_members:
-                await interaction.response.send_message("⚠️ Please grant me **Timeout Members** permission so I can execute this command.")
+                await interaction.followup.send("⚠️ Please grant me **Timeout Members** permission so I can execute this command.")
                 return False
         elif required_perm == "kick":
             if not bot_member.guild_permissions.kick_members:
-                await interaction.response.send_message("⚠️ Please grant me **Kick Members** permission so I can execute this command.")
+                await interaction.followup.send("⚠️ Please grant me **Kick Members** permission so I can execute this command.")
                 return False
         elif required_perm == "ban":
             if not bot_member.guild_permissions.ban_members:
-                await interaction.response.send_message("⚠️ Please grant me **Ban Members** permission so I can execute this command.")
+                await interaction.followup.send("⚠️ Please grant me **Ban Members** permission so I can execute this command.")
                 return False
 
         target_member = guild.get_member(target.id)
         if target_member is not None:
             if invoker.top_role <= target_member.top_role:
-                await interaction.response.send_message("⚠️ **Your role must be higher than the target member's role**.")
+                await interaction.followup.send("⚠️ **Your role must be higher than the target member's role**.")
                 return False
 
             if bot_member.top_role <= target_member.top_role:
-                await interaction.response.send_message("⚠️ Please check my role hierarchy in server settings to ensure **my role is higher than the target member's role**.")
+                await interaction.followup.send("⚠️ Please check my role hierarchy in server settings to ensure **my role is higher than the target member's role**.")
                 return False
 
         return True
@@ -70,6 +70,7 @@ class Moderation(commands.Cog):
         reason="Reason for warning"
     )
     async def warn(self, interaction: discord.Interaction, user: discord.User, reason: Optional[str] = None):
+        await interaction.response.defer()
         if not await self.check_all_permissions(interaction, user, "moderate"):
             return
 
@@ -105,7 +106,7 @@ class Moderation(commands.Cog):
         except discord.HTTPException:
             pass
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"**{user.display_name}** has been warned for: `{reason}`."
         )
 
@@ -116,10 +117,10 @@ class Moderation(commands.Cog):
         reason="Reason for timeout"
     )
     async def timeout(self, interaction: discord.Interaction, user: discord.User, duration: str, reason: Optional[str] = None):
+        await interaction.response.defer()
         if not await self.check_all_permissions(interaction, user, "moderate"):
             return
 
-        await interaction.response.defer()
         try:
             unit = duration[-1].lower()
             value = int(duration[:-1])
@@ -200,10 +201,10 @@ class Moderation(commands.Cog):
         reason="Reason for removing timeout (optional)"
     )
     async def untimeout(self, interaction: discord.Interaction, user: discord.User, reason: Optional[str] = None):
+        await interaction.response.defer()
         if not await self.check_all_permissions(interaction, user, "moderate"):
             return
 
-        await interaction.response.defer()
         if not reason or reason.strip() == "":
             reason = "no reason"
 
@@ -263,10 +264,10 @@ class Moderation(commands.Cog):
         reason="Reason for kick (optional)"
     )
     async def kick(self, interaction: discord.Interaction, user: discord.User, reason: Optional[str] = None):
+        await interaction.response.defer()
         if not await self.check_all_permissions(interaction, user, "kick"):
             return
 
-        await interaction.response.defer()
         if not reason or reason.strip() == "":
             reason = "no reason"
 
@@ -326,10 +327,10 @@ class Moderation(commands.Cog):
         delete_message="Message deletion timeframe (e.g., 30s, 5m, 1h, 1w)"
     )
     async def ban(self, interaction: discord.Interaction, user: discord.User, reason: Optional[str] = None, delete_message: Optional[str] = None):
+        await interaction.response.defer()
         if not await self.check_all_permissions(interaction, user, "ban"):
             return
 
-        await interaction.response.defer()
         if not reason or reason.strip() == "":
             reason = "no reason"
         delete_message_days = 0
@@ -403,10 +404,10 @@ class Moderation(commands.Cog):
         reason="Reason for unban"
     )
     async def unban(self, interaction: discord.Interaction, user: discord.User, reason: Optional[str] = None):
+        await interaction.response.defer()
         if not await self.check_all_permissions(interaction, user, "ban"):
             return
 
-        await interaction.response.defer()
         if not reason or reason.strip() == "":
             reason = "no reason"
 
