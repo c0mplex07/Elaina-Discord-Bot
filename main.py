@@ -1,4 +1,4 @@
-# ====================== IMPORTS ==============================
+#IMPORTS
 import os
 import logging
 import asyncio
@@ -10,9 +10,8 @@ from discord import Activity, ActivityType
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from utils.mongo_handler import MongoHandler
-# ============================================================
 
-# ====================== ENVIRONMENT LOADING =================
+#ENVIRONMENT
 def get_env_var(name, default=None, required=False, cast_type=None):
     """Lấy biến môi trường an toàn với ép kiểu và kiểm tra bắt buộc."""
     value = os.getenv(name, default)
@@ -30,33 +29,30 @@ load_dotenv()
 TOKEN = get_env_var('DISCORD_BOT_TOKEN', required=True, cast_type=str)
 MONGO_URI = get_env_var('MONGO_URI', required=True, cast_type=str)
 ADMIN_UID = get_env_var('ADMIN_UID', required=True, cast_type=int)
-LOG_CHANNEL_ID = get_env_var('LOG_CHANNEL_ID', required=True, cast_type=int)
-LOG_CHANNEL_ID2 = get_env_var('LOG_CHANNEL_ID2', required=True, cast_type=int)
-TARGET_CHANNEL_ID = get_env_var('TARGET_CHANNEL_ID', default=0, cast_type=int)
-# ============================================================
+ONLINE_CHANNEL_ID = get_env_var('ONLINE_CHANNEL_ID', required=True, cast_type=int)
+DATABASE_CHANNEL_ID = get_env_var('DATABASE_CHANNEL_ID', required=True, cast_type=int)
+INVITE_CHANNEL_ID = get_env_var('INVITE_CHANNEL_ID', default=0, cast_type=int)
 
-# ====================== LOGGING CONFIG ======================
+#LOGGING CONFIG
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(name)s | %(levelname)s | %(message)s'
 )
 logger = logging.getLogger(__name__)
-# ============================================================
 
-# ====================== BOT CONFIG ==========================
+#BOT CONFIG
 ACTIVITIES = [
     "https://dsc.gg/elaina-support"
 ]
-# ============================================================
 
-# ====================== CUSTOM BOT CLASS ====================
+
+#CUSTOM BOT CLASS
 class CustomBot(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.mongo_handler: Union[MongoHandler, None] = None
-# ============================================================
 
-# ====================== BOT INITIALIZATION ==================
+#BOT INITIALIZATION
 bot = CustomBot(
     command_prefix='eac',
     help_command=None,
@@ -64,15 +60,13 @@ bot = CustomBot(
     activity=Activity(type=ActivityType.listening, name="Khởi động...")
 )
 
-if MONGO_URI is None or LOG_CHANNEL_ID2 is None:
-    raise RuntimeError("MONGO_URI and LOG_CHANNEL_ID2 must not be None")
-bot.mongo_handler = MongoHandler(str(MONGO_URI), "enoubot", bot, int(LOG_CHANNEL_ID2))
-# ============================================================
+if MONGO_URI is None or DATABASE_CHANNEL_ID is None:
+    raise RuntimeError("MONGO_URI and DATABASE_CHANNEL_ID must not be None")
+bot.mongo_handler = MongoHandler(str(MONGO_URI), "enoubot", bot, int(DATABASE_CHANNEL_ID))
 
-# ====================== BACKGROUND TASKS ====================
+#BACKGROUND TASKS
 @tasks.loop(seconds=5.0)
 async def change_activity():
-    """Thay đổi activity của bot mỗi 5 giây."""
     if not bot.is_ready():
         return
     total_servers = len(bot.guilds)
@@ -93,7 +87,6 @@ async def change_activity():
 
 @tasks.loop(seconds=30.0)
 async def keep_mongo_connection():
-    """Ping MongoDB mỗi 30 giây để giữ kết nối."""
     mongo_handler = getattr(bot, 'mongo_handler', None)
     if mongo_handler is not None and hasattr(mongo_handler, 'client') and mongo_handler.client is not None:
         try:
@@ -102,12 +95,10 @@ async def keep_mongo_connection():
             logger.error(f"MongoDB connection lost: {e}. Reconnecting...")
             if hasattr(mongo_handler, 'reconnect'):
                 await mongo_handler.reconnect()
-# ============================================================
 
-# ====================== BOT EVENTS ==========================
+#BOT EVENTS
 @bot.event
 async def on_ready():
-    """Sự kiện khi bot sẵn sàng."""
     await bot.tree.sync()
     if bot.user:
         await log_to_channel(f"✅ Bot logged in as {bot.user} (ID: {bot.user.id})")
@@ -120,7 +111,6 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    """Xử lý tin nhắn gửi đến bot."""
     if message.author.bot or message.mention_everyone or message.role_mentions:
         return
     if bot.user in message.mentions and len(message.mentions) == 1:
@@ -129,28 +119,23 @@ async def on_message(message):
 
 @bot.event
 async def on_guild_join(guild):
-    """Sự kiện khi bot được thêm vào server mới."""
-    if TARGET_CHANNEL_ID:
+    if INVITE_CHANNEL_ID:
         try:
             invite = await guild.text_channels[0].create_invite(max_age=0, max_uses=0)
             await log_to_channel(
                 f"Added to **{guild.name}**\n{invite.url}", 
-                channel_id=TARGET_CHANNEL_ID
+                channel_id=INVITE_CHANNEL_ID
             )
         except Exception as e:
             logger.error(f"Failed to create invite: {str(e)}")
 
 @bot.event
 async def on_interaction(interaction):
-    """Xử lý các interaction (slash command, v.v.)."""
     if interaction.type == discord.InteractionType.application_command:
         if await is_user_banned(interaction.user.id):
             await interaction.response.send_message("❌ Tài khoản của bạn đã bị cấm sử dụng bot", ephemeral=True)
-# ============================================================
 
-# ====================== HELPER FUNCTIONS =====================
 async def handle_bot_mention(message):
-    """Trả lời khi bot bị mention."""
     image_url = "https://c.tenor.com/Hpd6ebmlWHMAAAAC/tenor.gif"
     embed = discord.Embed(
         description=(
@@ -162,8 +147,7 @@ async def handle_bot_mention(message):
     embed.set_image(url=image_url)
     await message.reply(embed=embed, delete_after=15)
 
-async def log_to_channel(content, channel_id=LOG_CHANNEL_ID):
-    """Gửi log tới kênh chỉ định."""
+async def log_to_channel(content, channel_id=ONLINE_CHANNEL_ID):
     if channel_id is None:
         return
     channel = bot.get_channel(int(channel_id))
@@ -175,7 +159,6 @@ async def log_to_channel(content, channel_id=LOG_CHANNEL_ID):
             logger.error(f"Failed to log to channel: {str(e)}")
 
 async def reload_single_cog(cog_path):
-    """Reload một cog cụ thể."""
     try:
         if cog_path in bot.extensions:
             await bot.reload_extension(cog_path)
@@ -186,18 +169,16 @@ async def reload_single_cog(cog_path):
         return (False, f"❌ Failed `{cog_path}`: {str(e)}")
 
 def format_reload_results(results):
-    """Định dạng kết quả reload nhiều cog."""
     return "\n".join([msg for ok, msg in results])
 
 async def is_user_banned(user_id):
-    """Kiểm tra user có bị ban không."""
     mongo_handler = getattr(bot, 'mongo_handler', None)
     if mongo_handler is None:
         return False
     user_data = await bot.loop.run_in_executor(None, mongo_handler.get_user_data, str(user_id))
     return user_data.get('banned', False)
 
-# ====================== LOAD INITIAL COGS ====================
+#LOAD INITIAL COGS
 async def load_initial_cogs():
     initial_cogs = ['cmd.group.embed_commands', 'cmd.group.greet_commands',
                     'cmd.group.moderation_commands',
@@ -215,9 +196,8 @@ async def load_initial_cogs():
         except Exception as e:
             logger.error(f"❌ Failed to load {cog}: {e}")
             await log_to_channel(f"❌ Failed to load {cog}: {e}")
-# ============================================================
 
-# ====================== MAIN EXECUTION =======================
+#MAIN EXECUTION
 async def main():
     await load_initial_cogs()
     try:
@@ -235,4 +215,3 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
-# ============================================================

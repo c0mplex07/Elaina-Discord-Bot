@@ -16,7 +16,6 @@ class MongoHandler:
         return cls._instance
 
     def __init__(self, uri: str, db_name: str, bot: discord.Client, log_channel_id: int):
-        # Kiểm tra nếu đã khởi tạo trước đó thì không thực hiện lại
         if hasattr(self, 'client') and self.client is not None:
             return
 
@@ -30,7 +29,6 @@ class MongoHandler:
         self.connect()
 
     async def log_to_channel(self, message: str):
-        """Gửi logs tới kênh Discord được chỉ định."""
         if self.bot.is_ready():
             log_channel = self.bot.get_channel(self.log_channel_id)
             if log_channel:
@@ -41,22 +39,20 @@ class MongoHandler:
 
     def connect(self):
         try:
-            # Kết nối MongoDB với cấu hình connection pool tối ưu
             self.client = MongoClient(
                 self.uri,
                 tls=True,
                 tlsAllowInvalidCertificates=True,
                 serverSelectionTimeoutMS=5000,
-                maxPoolSize=100,      # Giới hạn số kết nối tối đa
-                minPoolSize=10,       # Giữ ít nhất 10 kết nối luôn mở
+                maxPoolSize=100,
+                minPoolSize=10,
                 socketTimeoutMS=30000,
                 connectTimeoutMS=30000
             )
             self.db = self.client[self.db_name]
             self.collection = self.db["enoubot"]
-            self.client.server_info()  # Kiểm tra kết nối
+            self.client.server_info()
 
-            # Gửi thông báo kết nối thành công lên Discord
             loop = asyncio.get_event_loop()
             if loop.is_running():
                 asyncio.create_task(self.log_to_channel(f"✅ Connected to MongoDB: {self.db_name}"))
@@ -69,13 +65,12 @@ class MongoHandler:
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     def get_user_data(self, user_id: str) -> dict:
-        """Lấy dữ liệu người dùng từ MongoDB với cơ chế retry nếu có lỗi."""
         if not self.client:
             self.connect()
         try:
             user_data = self.collection.find_one({"_id": user_id})
             if user_data:
-                user_data.pop("_id", None)  # Loại bỏ trường _id khỏi kết quả
+                user_data.pop("_id", None)
                 return user_data
             return {}
         except ServerSelectionTimeoutError as e:
@@ -83,7 +78,6 @@ class MongoHandler:
             raise
 
     def update_user_data(self, user_id: str, update_fields: dict) -> None:
-        """Cập nhật dữ liệu người dùng trong MongoDB."""
         if not self.client:
             self.connect()
         try:
@@ -96,7 +90,6 @@ class MongoHandler:
             asyncio.create_task(self.log_to_channel("❌ Failed to update data, server is not available."))
 
     def delete_user_data(self, user_id: str) -> None:
-        """Xóa dữ liệu người dùng khỏi MongoDB."""
         if not self.client:
             self.connect()
         try:
@@ -106,7 +99,6 @@ class MongoHandler:
             asyncio.create_task(self.log_to_channel("❌ Failed to delete data, server is not available."))
 
     def close_connection(self) -> None:
-        """Đóng kết nối MongoDB."""
         if self.client:
             self.client.close()
             asyncio.create_task(self.log_to_channel("🔌 MongoDB connection closed."))
